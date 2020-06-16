@@ -1,20 +1,18 @@
 # 📝 2020/06/16
 
 
-## 開始
-
 まずは、前回に倣って環境構築
 
 
-### CodeMirror
+## CodeMirror
 
 version : `5.54.0`
 
 
-### WKWebView
+## WKWebView
 
 
-[pythonista-webview](https://github.com/mikaelho/pythonista-webview)
+- [pythonista-webview](https://github.com/mikaelho/pythonista-webview)
 
 > WKWebView implementation for Pythonista
 
@@ -23,13 +21,11 @@ version : `5.54.0`
 - CodeMirror の日本語入力問題解決のため
 
 
-### Eruda
+## Eruda
 
-[main](https://eruda.liriliri.io/)
-
-[GitHub](https://github.com/liriliri/eruda)
-
-[CDN](https://www.jsdelivr.com/package/npm/eruda)
+- [main](https://eruda.liriliri.io/)
+- [GitHub](https://github.com/liriliri/eruda)
+- [CDN](https://www.jsdelivr.com/package/npm/eruda)
 
 
 version : `2.3.3`
