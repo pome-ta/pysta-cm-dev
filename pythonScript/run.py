@@ -2,7 +2,7 @@ import wkwebview, ui
 from os import path
 
 #src = get_path()
-src = path.abspath('index.html')
+src = path.abspath('../index.html')
 
 r = ui.View(background_color='black')
 
