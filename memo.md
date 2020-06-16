@@ -16,6 +16,7 @@ version : `5.54.0`
 
 > WKWebView implementation for Pythonista
 
+### メモ
 
 - Pythonista のWebView が UIWebView のため
 - CodeMirror の日本語入力問題解決のため
@@ -29,6 +30,8 @@ version : `5.54.0`
 
 
 version : `2.3.3`
+
+### メモ
 
 - JavaScript のデバッグコンソール用
 - `jsdelivr` なのは、GitHub の指定リンクが最初だったから
