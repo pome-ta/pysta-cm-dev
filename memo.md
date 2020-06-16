@@ -37,3 +37,17 @@ version : `2.3.3`
 - `jsdelivr` なのは、GitHub の指定リンクが最初だったから
 
 
+# CodeMirror の対応
+
+- html の`script`タグを`type="module"`に
+	- `main.js` から、CodeMirror `/src` を呼び出す
+	- `/src` 内は、現在追記せず
+- `mode` ディレクトリ
+	- 各言語の`hoge.js` の先頭に以下を追加
+
+``` addScript.js
+import CodeMirror from '../../src/codemirror.js'
+```
+
+	- `meta.js` に挿しても、機能せず
+
