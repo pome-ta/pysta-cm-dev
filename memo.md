@@ -43,11 +43,18 @@ version : `2.3.3`
 	- `main.js` から、CodeMirror `/src` を呼び出す
 	- `/src` 内は、現在追記せず
 - `mode` ディレクトリ
+	- `meta.js` に挿しても、機能せず
 	- 各言語の`hoge.js` の先頭に以下を追加
 
 ``` addScript.js
 import CodeMirror from '../../src/codemirror.js'
 ```
 
-	- `meta.js` に挿しても、機能せず
+
+
+Python の場合、`main.js` に書くとインデント効かないけど、手打ちだとできる😤
+
+
+
+
 
