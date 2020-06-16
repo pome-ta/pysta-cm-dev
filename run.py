@@ -1,5 +1,4 @@
 import wkwebview, ui
-from editor import get_path
 from os import path
 
 #src = get_path()

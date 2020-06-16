@@ -1,4 +1,9 @@
 #coding: utf-8
+'''
+WKWebView - modern webview for Pythonista
+'''
+
+__version__ = '1.0'
 
 from objc_util import *
 import ui, console, webbrowser
@@ -6,7 +11,6 @@ import queue, weakref, ctypes, functools, time, os, json, re
 from types import SimpleNamespace
 
 # Helpers for invoking ObjC function blocks with no return value
-# 戻り値なしでObjC関数ブロックを呼び出すためのヘルパー
 
 
 class _block_descriptor(Structure):
@@ -24,7 +28,6 @@ def _block_literal_fields(*arg_types):
 class WKWebView(ui.View):
 
   # Data detector constants
-  # データ検出器の定数
   NONE = 0
   PHONE_NUMBER = 1
   LINK = 1 << 1
@@ -38,15 +41,18 @@ class WKWebView(ui.View):
   # Global webview index for console
   webviews = []
   console_view = UIApplication.sharedApplication().\
-    keyWindow().rootViewController().\
-    accessoryViewController().\
-    consoleViewController()
+      keyWindow().rootViewController().\
+      accessoryViewController().\
+      consoleViewController()
 
   def __init__(self,
                swipe_navigation=False,
                data_detectors=NONE,
                log_js_evals=False,
                respect_safe_areas=False,
+               inline_media=None,
+               airplay_media=True,
+               pip_media=True,
                **kwargs):
 
     WKWebView.webviews.append(self)
@@ -57,12 +63,14 @@ class WKWebView(ui.View):
 
     self.eval_js_queue = queue.Queue()
 
-    custom_message_handler = WKWebView.CustomMessageHandler.new().autorelease()
+    custom_message_handler = WKWebView.CustomMessageHandler.\
+        new().autorelease()
     retain_global(custom_message_handler)
     custom_message_handler._pythonistawebview = weakref.ref(self)
 
-    user_content_controller = self.user_content_controller = WKWebView.WKUserContentController.new(
-    ).autorelease()
+    user_content_controller = WKWebView.WKUserContentController.\
+        new().autorelease()
+    self.user_content_controller = user_content_controller
     for key in dir(self):
       if key.startswith('on_'):
         message_name = key[3:]
@@ -74,16 +82,20 @@ class WKWebView(ui.View):
     webview_config = WKWebView.WKWebViewConfiguration.new().autorelease()
     webview_config.userContentController = user_content_controller
 
-    data_detectors = sum(
-      data_detectors) if type(data_detectors) is tuple else data_detectors
+    data_detectors = sum(data_detectors) if type(data_detectors) is tuple \
+        else data_detectors
+    webview_config.setDataDetectorTypes_(data_detectors)
 
     # Must be set to True to get real js
     # errors, in combination with setting a
     # base directory in the case of load_html
-    # load_htmlの場合のベースディレクトリの設定と組み合わせて、実際のjsエラーを取得するにはTrueに設定する必要があります
     webview_config.preferences().setValue_forKey_(
       True, 'allowFileAccessFromFileURLs')
-    webview_config.setDataDetectorTypes_(data_detectors)
+
+    if inline_media is not None:
+      webview_config.allowsInlineMediaPlayback = inline_media
+    webview_config.allowsAirPlayForMediaPlayback = airplay_media
+    webview_config.allowsPictureInPictureMediaPlayback = pip_media
 
     nav_delegate = WKWebView.CustomNavigationDelegate.new()
     retain_global(nav_delegate)
@@ -99,8 +111,9 @@ class WKWebView(ui.View):
 
   @on_main_thread
   def _create_webview(self, webview_config, nav_delegate, ui_delegate):
-    self.webview = WKWebView.WKWebView.alloc().initWithFrame_configuration_(
-      ((0, 0), (self.width, self.height)), webview_config).autorelease()
+    self.webview = WKWebView.WKWebView.alloc().\
+        initWithFrame_configuration_(
+        ((0,0), (self.width, self.height)), webview_config).autorelease()
     self.webview.autoresizingMask = 2 + 16  # WH
     self.webview.setNavigationDelegate_(nav_delegate)
     self.webview.setUIDelegate_(ui_delegate)
@@ -111,15 +124,19 @@ class WKWebView(ui.View):
       self.update_safe_area_insets()
 
   @on_main_thread
-  def load_url(self, url):
-    ''' Loads the contents of the given url
-    asynchronously.
-    指定されたURLのコンテンツを非同期に読み込みます。
+  def load_url(self, url, no_cache=False, timeout=10):
+    """ Loads the contents of the given url
+        asynchronously.
 
-    If the url starts with `file://`, loads a local file. If the remaining url starts with `/`, path starts from Pythonista root.
+        If the url starts with `file://`, loads a local file. If the remaining
+        url starts with `/`, path starts from Pythonista root.
 
-    URLが `file：//`で始まる場合、ローカルファイルをロードします。 残りのURLが `/`で始まる場合、パスはPythonistaルートから始まります。
-    '''
+        For remote (non-file) requests, there are
+        two additional options:
+
+          * Set `no_cache` to `True` to skip the local cache, default is `False`
+          * Set `timeout` to a specific timeout value, default is 10 (seconds)
+        """
     if url.startswith('file://'):
       file_path = url[7:]
       if file_path.startswith('/'):
@@ -133,17 +150,17 @@ class WKWebView(ui.View):
       dir_only = NSURL.fileURLWithPath_(dir_only)
       self.webview.loadFileURL_allowingReadAccessToURL_(file_path, dir_only)
     else:
+      cache_policy = 1 if no_cache else 0
       self.webview.loadRequest_(
-        WKWebView.NSURLRequest.requestWithURL_(nsurl(url)))
+        WKWebView.NSURLRequest.requestWithURL_cachePolicy_timeoutInterval_(
+          nsurl(url), cache_policy, timeout))
 
   @on_main_thread
   def load_html(self, html):
     # Need to set a base directory to get
     # real js errors
-    # 実際のjsエラーを取得するには、ベースディレクトリを設定する必要があります
     current_working_directory = os.path.dirname(os.getcwd())
     root_dir = NSURL.fileURLWithPath_(current_working_directory)
-    #root_dir = NSURL.fileURLWithPath_(os.path.expanduser('~'))
     self.webview.loadHTMLString_baseURL_(html, root_dir)
 
   def eval_js(self, js):
@@ -167,8 +184,19 @@ class WKWebView(ui.View):
     retain_global(block)
     self.webview.evaluateJavaScript_completionHandler_(js, block)
 
+  def clear_cache(self, completion_handler=None):
+    store = WKWebView.WKWebsiteDataStore.defaultDataStore()
+    data_types = WKWebView.WKWebsiteDataStore.allWebsiteDataTypes()
+    from_start = WKWebView.NSDate.dateWithTimeIntervalSince1970_(0)
+
+    def dummy_completion_handler():
+      pass
+
+    store.removeDataOfTypes_modifiedSince_completionHandler_(
+      data_types, from_start, completion_handler or dummy_completion_handler)
+
   # Javascript evaluation completion handler
-  # Javascript評価完了ハンドラー
+
   def _handle_completion(callback, webview, _cmd, _obj, _err):
     result = str(ObjCInstance(_obj)) if _obj else None
     if webview.log_js_evals:
@@ -178,27 +206,39 @@ class WKWebView(ui.View):
 
   def add_script(self, js_script, add_to_end=True):
     location = 1 if add_to_end else 0
-    wk_script = WKWebView.WKUserScript.alloc(
-    ).initWithSource_injectionTime_forMainFrameOnly_(js_script, location,
-                                                     False)
+    wk_script = WKWebView.WKUserScript.alloc().\
+        initWithSource_injectionTime_forMainFrameOnly_(
+            js_script, location, False)
     self.user_content_controller.addUserScript_(wk_script)
 
   def add_style(self, css):
-    "Convenience method to add a style tag with the given css, to every page loaded by the view."
+    """
+        Convenience method to add a style tag with the given css, to every
+        page loaded by the view.
+        """
     css = css.replace("'", "\'")
-    js = f"var style = document.createElement('style');style.innerHTML = '{css}';document.getElementsByTagName('head')[0].appendChild(style);"
+    js = f"var style = document.createElement('style');"
+    "style.innerHTML = '{css}';"
+    "document.getElementsByTagName('head')[0].appendChild(style);"
     self.add_script(js, add_to_end=True)
 
   def add_meta(self, name, content):
-    "Convenience method to add a meta tag with the given name and content, to every page loaded by the view."
+    """
+        Convenience method to add a meta tag with the given name and content,
+        to every page loaded by the view."
+        """
     name = name.replace("'", "\'")
     content = content.replace("'", "\'")
-    js = f"var meta = document.createElement('meta'); meta.setAttribute('name', '{name}'); meta.setAttribute('content', '{content}'); document.getElementsByTagName('head')[0].appendChild(meta);"
+    js = f"var meta = document.createElement('meta');"
+    "meta.setAttribute('name', '{name}');"
+    "meta.setAttribute('content', '{content}');"
+    "document.getElementsByTagName('head')[0].appendChild(meta);"
     self.add_script(js, add_to_end=True)
 
   def disable_zoom(self):
     name = 'viewport'
-    content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'
+    content = 'width=device-width, initial-scale=1.0,'
+    'maximum-scale=1.0, user-scalable=no'
     self.add_meta(name, content)
 
   def disable_user_selection(self):
@@ -210,11 +250,17 @@ class WKWebView(ui.View):
     self.add_style(css)
 
   def disable_scrolling(self):
-    "Included for consistency with the other `disable_x` methods, this is equivalent to setting `scroll_enabled` to false."
+    """
+        Included for consistency with the other `disable_x` methods, this is
+        equivalent to setting `scroll_enabled` to false."
+        """
     self.scroll_enabled = False
 
   def disable_all(self):
-    "Convenience method that calls all the `disable_x` methods to make the loaded pages act more like an app."
+    """
+        Convenience method that calls all the `disable_x` methods to make the
+        loaded pages act more like an app."
+        """
     self.disable_zoom()
     self.disable_scrolling()
     self.disable_user_selection()
@@ -274,8 +320,11 @@ class WKWebView(ui.View):
 
   @property
   def scroll_enabled(self):
-    '''Controls whether scrolling is enabled.
-    Disabling scrolling is applicable for pages that need to look like an app.'''
+    """
+        Controls whether scrolling is enabled.
+        Disabling scrolling is applicable for pages that need to look like an
+        app.
+        """
     return self.webview.scrollView().scrollEnabled()
 
   @scroll_enabled.setter
@@ -303,7 +352,28 @@ class WKWebView(ui.View):
     except KeyboardInterrupt:
       return None
 
-  js_logging_script = 'console = new Object(); console.info = function(message) { window.webkit.messageHandlers.javascript_console_message.postMessage(JSON.stringify({ level: "info", content: message})); return false; }; console.log = function(message) { window.webkit.messageHandlers.javascript_console_message.postMessage(JSON.stringify({ level: "log", content: message})); return false; }; console.warn = function(message) { window.webkit.messageHandlers.javascript_console_message.postMessage(JSON.stringify({ level: "warn", content: message})); return false; }; console.error = function(message) { window.webkit.messageHandlers.javascript_console_message.postMessage(JSON.stringify({ level: "error", content: message})); return false; }; window.onerror = (function(error, url, line, col, errorobj) { console.error("" + error + " (" + url + ", line: " + line + ", column: " + col + ")"); });'
+  js_logging_script = 'console = new Object();'
+  'console.info = function(message) { '
+  ' window.webkit.messageHandlers.javascript_console_message.postMessage('
+  '  JSON.stringify({ level: "info", content: message})'
+  ' ); return false; };'
+  'console.log = function(message) { '
+  ' window.webkit.messageHandlers.javascript_console_message.postMessage('
+  '  JSON.stringify({ level: "log", content: message})'
+  ' ); return false; };'
+  'console.warn = function(message) { '
+  ' window.webkit.messageHandlers.javascript_console_message.postMessage('
+  '  JSON.stringify({ level: "warn", content: message})'
+  ' ); return false; };'
+  'console.error = function(message) {'
+  ' window.webkit.messageHandlers.javascript_console_message.postMessage('
+  '  JSON.stringify({ level: "error", content: message})'
+  ' ); return false; };'
+  'window.onerror = (function(error, url, line, col, errorobj) {'
+  ' console.error('
+  '  "" + error + " (" + url + ", line: " + line + ", column: " + col + ")"'
+  ' );'
+  '});'
 
   def on_javascript_console_message(self, message):
     log_message = json.loads(message)
@@ -391,6 +461,8 @@ class WKWebView(ui.View):
   WKUserContentController = ObjCClass('WKUserContentController')
   NSURLRequest = ObjCClass('NSURLRequest')
   WKUserScript = ObjCClass('WKUserScript')
+  WKWebsiteDataStore = ObjCClass('WKWebsiteDataStore')
+  NSDate = ObjCClass('NSDate')
 
   # Navigation delegate
 
@@ -491,8 +563,8 @@ class WKWebView(ui.View):
     if handler:
       handler(content)
     else:
-      raise Exception(
-        f'Unhandled message from script - name: {name}, content: {content}')
+      raise Exception(f'Unhandled message from script - name: {name}, '
+                      'content: {content}')
 
   CustomMessageHandler = create_objc_class(
     'CustomMessageHandler',
@@ -580,7 +652,10 @@ if __name__ == '__main__':
 
   class MyWebViewDelegate:
     def webview_should_start_load(self, webview, url, nav_type):
-      "See nav_type options at https://developer.apple.com/documentation/webkit/wknavigationtype?language=objc"
+      """
+            See nav_type options at
+            https://developer.apple.com/documentation/webkit/wknavigationtype?language=objc
+            """
       print('Will start loading', url)
       return True
 
@@ -589,23 +664,59 @@ if __name__ == '__main__':
 
     @ui.in_background
     def webview_did_finish_load(self, webview):
-      print('Finished loading ' + webview.eval_js('document.title'))
+      print('Finished loading ' + str(webview.eval_js('document.title')))
+
+  class MyWebView(WKWebView):
+    def on_greeting(self, message):
+      console.alert(
+        message, 'Message passed to Python', 'OK', hide_cancel_button=True)
+
+  html = '''
+  <html>
+  <head>
+    <title>WKWebView tests</title>
+    <script>
+      function initialize() {
+        //result = prompt('Initialized', 'Yes, indeed');
+        //if (result) {
+          //window.webkit.messageHandlers.greeting.postMessage(
+          //    result ? result : "<Dialog cancelled>");
+        //}
+      }
+    </script>
+  </head>
+  <body onload="initialize()" style="font-size: xx-large; text-align: center">
+    <p>
+      Hello world
+    </p>
+    <p>
+      <a href="http://omz-software.com/pythonista/">Pythonista home page</a>
+    </p>
+    <p>
+      +358 40 1234567
+    </p>
+    <p>
+      http://omz-software.com/pythonista/
+    </p>
+  </body>
+  '''
 
   r = ui.View(background_color='black')
 
-  v = WKWebView(
+  v = MyWebView(
     name='DemoWKWebView',
     delegate=MyWebViewDelegate(),
     swipe_navigation=True,
     data_detectors=(WKWebView.PHONE_NUMBER, WKWebView.LINK),
     frame=r.bounds,
     flex='WH')
-
-  v.load_url('https://www.yahoo.co.jp')
   r.add_subview(v)
+
   r.present()  # Use 'panel' if you want to view console in another tab
 
   #v.disable_all()
-  #v.load_html(html2)
+  #v.load_html(html)
+  v.load_url('http://omz-software.com/pythonista/', no_cache=False, timeout=5)
   #v.load_url('file://some/local/file.html')
+  v.clear_cache()
 
