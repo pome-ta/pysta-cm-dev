@@ -25,12 +25,14 @@ import { defaults, optionHandlers, Init } from "./options.js"
 
 // A CodeMirror instance represents an editor. This is the object
 // that user code is usually dealing with.
+// CodeMirrorインスタンスはエディターを表します。 これは、ユーザーコードが通常扱うオブジェクトです。
 
 export function CodeMirror(place, options) {
   if (!(this instanceof CodeMirror)) return new CodeMirror(place, options)
 
   this.options = options = options ? copyObj(options) : {}
   // Determine effective options based on given values and defaults.
+  // 与えられた値とデフォルトに基づいて効果的なオプションを決定します。
   copyObj(defaults, options, false)
 
   let doc = options.value
@@ -88,6 +90,7 @@ export function CodeMirror(place, options) {
   endOperation(this)
   // Suppress optimizelegibility in Webkit, since it breaks text
   // measuring on line wrapping boundaries.
+  // 行の折り返しの境界で測定されるテキストを壊すため、Webkitのoptimizelegibilityを抑制します。
   if (webkit && options.lineWrapping &&
       getComputedStyle(display.lineDiv).textRendering == "optimizelegibility")
     display.lineDiv.style.textRendering = "auto"

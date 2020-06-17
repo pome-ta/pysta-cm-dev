@@ -15,6 +15,7 @@ import { on, signalDOMEvent } from "../util/event.js"
 import { Delayed, lst, sel_dontScroll } from "../util/misc.js"
 
 // CONTENTEDITABLE INPUT STYLE
+// コンテンツ編集可能な入力スタイル
 
 export default class ContentEditableInput {
   constructor(cm) {
@@ -85,6 +86,7 @@ export default class ContentEditableInput {
         e.clipboardData.clearData()
         let content = lastCopied.text.join("\n")
         // iOS exposes the clipboard API, but seems to discard content inserted into it
+        // iOSはクリップボードAPIを公開しますが、それに挿入されたコンテンツを破棄するようです
         e.clipboardData.setData("Text", content)
         if (e.clipboardData.getData("Text") == content) {
           e.preventDefault()
@@ -92,6 +94,7 @@ export default class ContentEditableInput {
         }
       }
       // Old-fashioned briefly-focus-a-textarea hack
+      // 昔ながらの簡単なテキストエリアハック
       let kludge = hiddenTextarea(), te = kludge.firstChild
       cm.display.lineSpace.insertBefore(kludge, cm.display.lineSpace.firstChild)
       te.value = lastCopied.text.join("\n")
@@ -109,6 +112,7 @@ export default class ContentEditableInput {
 
   screenReaderLabelChanged(label) {
     // Label for screenreaders, accessibility
+    // スクリーンリーダーのラベル、アクセシビリティ
     if(label) {
       this.div.setAttribute('aria-label', label)
     } else {
@@ -253,6 +257,7 @@ export default class ContentEditableInput {
     // Because Android doesn't allow us to actually detect backspace
     // presses in a sane way, this code checks for when that happens
     // and simulates a backspace press in this case.
+    // Android Chrome（少なくともバージョン56）では、編集不可のブロック要素にバックスペースすると、その要素にカーソルが置かれ、編集できないため、仮想キーボードが非表示になります。  Androidではバックスペースプレスを実際の方法で実際に検出することを許可していないため、このコードはそれがいつ発生するかを確認し、この場合はバックスペースプレスをシミュレートします。
     if (android && chrome && this.cm.display.gutterSpecs.length && isInGutter(sel.anchorNode)) {
       this.cm.triggerOnKeyDown({type: "keydown", keyCode: 8, preventDefault: Math.abs})
       this.blur()
@@ -321,6 +326,7 @@ export default class ContentEditableInput {
            newBot.charCodeAt(newBot.length - cutEnd - 1) == oldBot.charCodeAt(oldBot.length - cutEnd - 1))
       ++cutEnd
     // Try to move start of change to start of selection if ambiguous
+    // あいまいな場合は、変更の始まりを選択の始まりに移動してみてください
     if (newText.length == 1 && oldText.length == 1 && fromLine == from.line) {
       while (cutFront && cutFront > from.ch &&
              newBot.charCodeAt(newBot.length - cutEnd - 1) == oldBot.charCodeAt(oldBot.length - cutEnd - 1)) {
@@ -527,6 +533,7 @@ function locateNodeInLineView(lineView, node, offset) {
   if (found) return badPos(found, bad)
 
   // FIXME this is all really shaky. might handle the few cases it needs to handle, but likely to cause problems
+  // FIXMEこれはすべて本当に不安定です。 処理する必要があるいくつかのケースを処理する可能性がありますが、問題を引き起こす可能性があります
   for (let after = topNode.nextSibling, dist = textNode ? textNode.nodeValue.length - offset : 0; after; after = after.nextSibling) {
     found = find(after, after.firstChild, 0)
     if (found)

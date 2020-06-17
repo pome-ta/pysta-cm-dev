@@ -3,7 +3,7 @@
 
 ## これはなに？
 
-iOS アプリ、Pythonista3 で、エディタを作るリポジトリ
+iOS アプリ [Pythonista3](http://omz-software.com/pythonista/) でエディタを作ろうとしてるリポジトリ
 
 
 ## 遊びかた 🎮

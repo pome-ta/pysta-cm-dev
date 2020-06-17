@@ -25,9 +25,29 @@ export let mac = ios || /Mac/.test(platform)
 export let chromeOS = /\bCrOS\b/.test(userAgent)
 export let windows = /win/i.test(platform)
 
+console.log('gecko:'+gecko);
+console.log('ie:'+ie);
+console.log('ie_version:'+ie_version);
+console.log('webkit:'+webkit);
+console.log('chrome:'+chrome);
+console.log('presto:'+presto);
+console.log('safari:'+safari);
+console.log('mac_geMountainLion:'+mac_geMountainLion);
+console.log('phantom:'+phantom);
+console.log('ios:'+ios);
+console.log('android:'+android);
+console.log('mobile:'+mobile);
+console.log('mac:'+mac);
+console.log('chromeOS:'+chromeOS);
+console.log('windows:'+windows);
+
+
 let presto_version = presto && userAgent.match(/Version\/(\d*\.\d*)/)
 if (presto_version) presto_version = Number(presto_version[1])
 if (presto_version && presto_version >= 15) { presto = false; webkit = true }
 // Some browsers use the wrong event properties to signal cmd/ctrl on OS X
 export let flipCtrlCmd = mac && (qtwebkit || presto && (presto_version == null || presto_version < 12.11))
 export let captureRightClick = gecko || (ie && ie_version >= 9)
+console.log('flipCtrlCmd:'+flipCtrlCmd);
+console.log('captureRightClick:'+captureRightClick);
+

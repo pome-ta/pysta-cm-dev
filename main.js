@@ -9,4 +9,6 @@ let myCodeMirror = CodeMirror(document.body, {
   }
   
 );
+console.log(myCodeMirror);
+
 
